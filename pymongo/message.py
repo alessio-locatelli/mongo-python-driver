@@ -296,7 +296,7 @@ def _compress(
     operation: int, data: bytes, ctx: Union[SnappyContext, ZlibContext, ZstdContext]
 ) -> tuple[int, bytes]:
     """Takes message data, compresses it, and adds an OP_COMPRESSED header."""
-    compressed = ctx.compress(data)
+    compressed = ctx.compress(data)  # type: ignore[call-arg,misc]
     request_id = _randint()
 
     header = _pack_compression_header(

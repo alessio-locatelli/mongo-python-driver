@@ -24,7 +24,7 @@ _NO_COMPRESSION = {HelloCompat.CMD, HelloCompat.LEGACY_CMD}
 _NO_COMPRESSION.update(_SENSITIVE_COMMANDS)
 
 try:
-    import snappy  # type:ignore[import-untyped]
+    import snappy  # type:ignore[import-not-found]
 except ImportError:
     pass
 
