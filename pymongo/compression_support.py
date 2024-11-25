@@ -23,10 +23,28 @@ _SUPPORTED_COMPRESSORS = {"snappy", "zlib", "zstd"}
 _NO_COMPRESSION = {HelloCompat.CMD, HelloCompat.LEGACY_CMD}
 _NO_COMPRESSION.update(_SENSITIVE_COMMANDS)
 
+try:
+    import snappy  # type:ignore[import-not-found]
+except ImportError:
+    pass
+
+try:
+    import zlib
+except ImportError:
+    pass
+
+try:
+    import zstandard
+except ImportError:
+    pass
+else:
+    zstandard_compressor = zstandard.ZstdCompressor()
+    zstandard_decompressor = zstandard.ZstdDecompressor()
+
 
 def _have_snappy() -> bool:
     try:
-        import snappy  # type:ignore[import-not-found]  # noqa: F401
+        import snappy  # noqa: F401
 
         return True
     except ImportError:
@@ -120,11 +138,8 @@ class CompressionSettings:
 class SnappyContext:
     compressor_id = 1
 
-    @staticmethod
-    def compress(data: bytes) -> bytes:
-        import snappy
-
-        return snappy.compress(data)
+    if _have_snappy():
+        compress = snappy.compress
 
 
 class ZlibContext:
@@ -134,22 +149,16 @@ class ZlibContext:
         self.level = level
 
     def compress(self, data: bytes) -> bytes:
-        import zlib
-
         return zlib.compress(data, self.level)
 
 
 class ZstdContext:
     compressor_id = 3
 
-    @staticmethod
-    def compress(data: bytes) -> bytes:
-        # ZstdCompressor is not thread safe.
-        # TODO: Use a pool?
-
-        import zstandard
-
-        return zstandard.ZstdCompressor().compress(data)
+    # ZstdCompressor is not thread safe.
+    # TODO: Use a pool?
+    if _have_zstd():
+        compress = zstandard_compressor.compress
 
 
 def decompress(data: bytes, compressor_id: int) -> bytes:
@@ -158,18 +167,12 @@ def decompress(data: bytes, compressor_id: int) -> bytes:
         # https://github.com/andrix/python-snappy/issues/65
         # This only matters when data is a memoryview since
         # id(bytes(data)) == id(data) when data is a bytes.
-        import snappy
-
         return snappy.uncompress(bytes(data))
     elif compressor_id == ZlibContext.compressor_id:
-        import zlib
-
         return zlib.decompress(data)
     elif compressor_id == ZstdContext.compressor_id:
         # ZstdDecompressor is not thread safe.
         # TODO: Use a pool?
-        import zstandard
-
-        return zstandard.ZstdDecompressor().decompress(data)
+        return zstandard_decompressor.decompress(data)
     else:
         raise ValueError("Unknown compressorId %d" % (compressor_id,))
